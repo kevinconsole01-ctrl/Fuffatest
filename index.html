@@ -1195,18 +1195,59 @@
 
         .player-modal {
             z-index: 10020;
+            flex-direction: column;
+            gap: 12px;
+            padding: 16px;
         }
 
         .player-modal-frame {
-            width: min(1280px, 96vw, calc(90vh * 16 / 9)) !important;
-            max-height: 90vh;
+            width: min(1280px, 96vw, calc(88vh * 16 / 9)) !important;
+            max-height: 88vh;
+        }
+
+        .player-modal-actions {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 0 8px;
+            color: rgba(255, 255, 255, 0.75);
+            font-size: 0.88rem;
+            text-align: center;
+        }
+
+        .player-modal-actions button {
+            cursor: pointer;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.12);
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 999px;
+            font: inherit;
+            font-weight: 600;
+            transition: background-color var(--dur-base) var(--ease-standard);
+        }
+
+        .player-modal-actions button:hover {
+            background: rgba(255, 255, 255, 0.22);
         }
 
         @media (max-width: 900px) {
+            .player-modal {
+                padding: 0;
+                gap: 8px;
+                justify-content: center;
+            }
+
             .player-modal-frame {
                 width: 100vw !important;
-                max-height: 100vh;
+                max-height: calc(100vh - 88px);
                 border-radius: 0;
+            }
+
+            .player-modal-actions {
+                padding: 0 14px 10px;
             }
         }
 
@@ -8942,7 +8983,46 @@ async function fetchRecommendations(id, mediaType = currentType) {
         }
     }
 
+    let playerUrlCorrente = '';
+    let playerWindowRef = null;
+
     function apriPlayer(url, titolo) {
+        playerUrlCorrente = url;
+
+        // Cloudflare blocca l'incorporamento in iframe, ma accetta la
+        // navigazione top-level: apriamo il player in una finestra dedicata
+        // (un vero popup, non un iframe), così funziona come una nuova scheda
+        // restando una finestra separata e ridimensionabile.
+        const schermoLarghezza = window.screen?.availWidth || 1280;
+        const schermoAltezza = window.screen?.availHeight || 800;
+        const larghezza = Math.max(480, Math.min(1280, schermoLarghezza - 40));
+        const altezza = Math.max(320, Math.min(760, schermoAltezza - 70));
+        const sinistra = Math.max(0, Math.round((schermoLarghezza - larghezza) / 2));
+        const sopra = Math.max(0, Math.round((schermoAltezza - altezza) / 2));
+        const features = [
+            'popup=yes',
+            `width=${larghezza}`,
+            `height=${altezza}`,
+            `left=${sinistra}`,
+            `top=${sopra}`,
+            'resizable=yes',
+            'scrollbars=yes',
+            'menubar=no',
+            'toolbar=no',
+            'location=no',
+            'status=no'
+        ].join(',');
+
+        try {
+            playerWindowRef = window.open(url, 'caponioflix_vix_player', features);
+            if (playerWindowRef) {
+                playerWindowRef.focus?.();
+                return;
+            }
+        } catch {}
+
+        // Popup bloccato dal browser: ripiego sul modale con iframe e
+        // pulsante "Apri in una nuova scheda".
         const modal = document.getElementById('vixPlayerModal');
         const frame = document.getElementById('vixPlayerFrame');
 
@@ -8955,6 +9035,17 @@ async function fetchRecommendations(id, mediaType = currentType) {
         frame.src = url;
         modal.classList.add('is-open');
         document.querySelector('.content-stack')?.classList.add('nf-trailer-open');
+    }
+
+    function apriPlayerEsterno() {
+        if (!playerUrlCorrente) return;
+        const link = document.createElement('a');
+        link.href = playerUrlCorrente;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
     }
 
     function chiudiPlayer() {
@@ -9124,6 +9215,10 @@ async function fetchRecommendations(id, mediaType = currentType) {
 <div id="vixPlayerModal" class="trailer-modal player-modal" role="dialog" aria-modal="true" aria-label="Player streaming">
     <button type="button" class="trailer-modal-close" onclick="chiudiPlayer()" aria-label="Chiudi player">✕</button>
     <iframe id="vixPlayerFrame" class="trailer-modal-frame player-modal-frame" title="Player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen" allowfullscreen referrerpolicy="origin" loading="lazy"></iframe>
+    <div class="player-modal-actions">
+        <span>Il player non si carica o viene bloccato?</span>
+        <button type="button" onclick="apriPlayerEsterno()">Apri in una nuova scheda</button>
+    </div>
 </div>
 
 <div id="authModal" class="auth-modal" role="dialog" aria-modal="true" aria-label="Accedi al tuo account">
