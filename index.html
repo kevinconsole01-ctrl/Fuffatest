@@ -1201,8 +1201,9 @@
         }
 
         .player-modal-frame {
-            width: min(1280px, 96vw, calc(88vh * 16 / 9)) !important;
-            max-height: 88vh;
+            width: min(1280px, 96vw, calc(86vh * 16 / 9)) !important;
+            max-height: 86vh;
+            background: #000;
         }
 
         .player-modal-actions {
@@ -1242,7 +1243,7 @@
 
             .player-modal-frame {
                 width: 100vw !important;
-                max-height: calc(100vh - 88px);
+                max-height: calc(100vh - 96px);
                 border-radius: 0;
             }
 
@@ -8984,45 +8985,10 @@ async function fetchRecommendations(id, mediaType = currentType) {
     }
 
     let playerUrlCorrente = '';
-    let playerWindowRef = null;
 
-    function apriPlayer(url, titolo) {
+    function apriPlayer(url) {
         playerUrlCorrente = url;
 
-        // Cloudflare blocca l'incorporamento in iframe, ma accetta la
-        // navigazione top-level: apriamo il player in una finestra dedicata
-        // (un vero popup, non un iframe), così funziona come una nuova scheda
-        // restando una finestra separata e ridimensionabile.
-        const schermoLarghezza = window.screen?.availWidth || 1280;
-        const schermoAltezza = window.screen?.availHeight || 800;
-        const larghezza = Math.max(480, Math.min(1280, schermoLarghezza - 40));
-        const altezza = Math.max(320, Math.min(760, schermoAltezza - 70));
-        const sinistra = Math.max(0, Math.round((schermoLarghezza - larghezza) / 2));
-        const sopra = Math.max(0, Math.round((schermoAltezza - altezza) / 2));
-        const features = [
-            'popup=yes',
-            `width=${larghezza}`,
-            `height=${altezza}`,
-            `left=${sinistra}`,
-            `top=${sopra}`,
-            'resizable=yes',
-            'scrollbars=yes',
-            'menubar=no',
-            'toolbar=no',
-            'location=no',
-            'status=no'
-        ].join(',');
-
-        try {
-            playerWindowRef = window.open(url, 'caponioflix_vix_player', features);
-            if (playerWindowRef) {
-                playerWindowRef.focus?.();
-                return;
-            }
-        } catch {}
-
-        // Popup bloccato dal browser: ripiego sul modale con iframe e
-        // pulsante "Apri in una nuova scheda".
         const modal = document.getElementById('vixPlayerModal');
         const frame = document.getElementById('vixPlayerFrame');
 
@@ -9031,10 +8997,22 @@ async function fetchRecommendations(id, mediaType = currentType) {
             return;
         }
 
-        frame.title = `Player: ${titolo || 'titolo selezionato'}`;
         frame.src = url;
         modal.classList.add('is-open');
         document.querySelector('.content-stack')?.classList.add('nf-trailer-open');
+    }
+
+    function chiudiPlayer() {
+        const modal = document.getElementById('vixPlayerModal');
+        if (!modal) return;
+        modal.classList.remove('is-open');
+        const frame = document.getElementById('vixPlayerFrame');
+        if (frame) frame.src = '';
+        document.querySelector('.content-stack')?.classList.remove('nf-trailer-open');
+    }
+
+    function apriPlayerStessaScheda() {
+        if (playerUrlCorrente) apriLinkEsterno(playerUrlCorrente);
     }
 
     function apriPlayerEsterno() {
@@ -9046,15 +9024,6 @@ async function fetchRecommendations(id, mediaType = currentType) {
         document.body.appendChild(link);
         link.click();
         link.remove();
-    }
-
-    function chiudiPlayer() {
-        const modal = document.getElementById('vixPlayerModal');
-        if (!modal) return;
-        modal.classList.remove('is-open');
-        const frame = document.getElementById('vixPlayerFrame');
-        if (frame) frame.src = '';
-        document.querySelector('.content-stack')?.classList.remove('nf-trailer-open');
     }
 
     function riproduciInPagina(item = elementoSelezionato) {
@@ -9075,8 +9044,7 @@ async function fetchRecommendations(id, mediaType = currentType) {
             url = `https://vixsrc.to/tv/${tmdbId}/${season}/${episode}/`;
         }
 
-        const titolo = tipo === 'movie' ? item.title : item.name;
-        apriPlayer(url, titolo);
+        apriPlayer(url);
     }
 
     async function trovaTrailerYouTube(id, mediaType) {
@@ -9216,8 +9184,9 @@ async function fetchRecommendations(id, mediaType = currentType) {
     <button type="button" class="trailer-modal-close" onclick="chiudiPlayer()" aria-label="Chiudi player">✕</button>
     <iframe id="vixPlayerFrame" class="trailer-modal-frame player-modal-frame" title="Player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen" allowfullscreen referrerpolicy="origin" loading="lazy"></iframe>
     <div class="player-modal-actions">
-        <span>Il player non si carica o viene bloccato?</span>
-        <button type="button" onclick="apriPlayerEsterno()">Apri in una nuova scheda</button>
+        <span>Se il player non parte (blocco Cloudflare), aprilo fuori dall'iframe:</span>
+        <button type="button" onclick="apriPlayerStessaScheda()">Stessa scheda</button>
+        <button type="button" onclick="apriPlayerEsterno()">Nuova scheda</button>
     </div>
 </div>
 
